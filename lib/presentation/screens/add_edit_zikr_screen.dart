@@ -119,7 +119,7 @@ class _AddEditZikrScreenState extends ConsumerState<AddEditZikrScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<PrayerLink>(
-              value: _prayerLink,
+              initialValue: _prayerLink,
               decoration: const InputDecoration(
                 labelText: 'Link to Prayer',
                 border: OutlineInputBorder(),
