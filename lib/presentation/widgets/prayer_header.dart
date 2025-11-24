@@ -3,11 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:al_tadkhira/presentation/providers/providers.dart';
 import 'package:adhan/adhan.dart';
 
-class PrayerHeader extends ConsumerWidget {
+class PrayerHeader extends ConsumerStatefulWidget {
   const PrayerHeader({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PrayerHeader> createState() => _PrayerHeaderState();
+}
+
+class _PrayerHeaderState extends ConsumerState<PrayerHeader> {
+  @override
+  Widget build(BuildContext context) {
     final prayerTimesService = ref.watch(prayerTimesServiceProvider);
 
     return FutureBuilder<PrayerTimes?>(
@@ -23,13 +28,32 @@ class PrayerHeader extends ConsumerWidget {
         if (snapshot.hasError || !snapshot.hasData) {
           return Container(
             height: 200,
+            width: double.infinity,
             color: Theme.of(context).colorScheme.primary,
-            child: const Center(
-              child: Text(
-                'Could not load prayer times.\nPlease check location permissions.',
-                style: TextStyle(color: Colors.white),
-                textAlign: TextAlign.center,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Could not load prayer times.\nPlease check location permissions.',
+                  style: TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () async {
+                    final locationService = ref.read(locationServiceProvider);
+                    await locationService.handlePermission();
+                    if (mounted) {
+                      setState(() {});
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                  child: const Text('Grant Permission'),
+                ),
+              ],
             ),
           );
         }

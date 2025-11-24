@@ -25,7 +25,8 @@ final locationServiceProvider = Provider<LocationService>((ref) {
 
 final prayerTimesServiceProvider = Provider<PrayerTimesService>((ref) {
   final locationService = ref.watch(locationServiceProvider);
-  return PrayerTimesService(locationService);
+  final settingsService = ref.watch(settingsServiceProvider);
+  return PrayerTimesService(locationService, settingsService);
 });
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {

@@ -2,16 +2,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:al_tadkhira/presentation/widgets/prayer_header.dart';
 import 'package:al_tadkhira/presentation/widgets/zikr_list.dart';
+import 'package:al_tadkhira/presentation/providers/providers.dart';
 
 import 'package:al_tadkhira/presentation/screens/add_edit_zikr_screen.dart';
 import 'package:al_tadkhira/presentation/screens/reports_screen.dart';
 import 'package:al_tadkhira/presentation/screens/settings_screen.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Request permission on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkPermission();
+    });
+  }
+
+  Future<void> _checkPermission() async {
+    final locationService = ref.read(locationServiceProvider);
+    await locationService.handlePermission();
+    // After permission handling, we might want to trigger a refresh of prayer times
+    // if the header is listening to something, or just let the user interact.
+    // Ideally, we'd have a provider for "current location" that updates.
+    // For now, we rely on the PrayerHeader to handle its own state or retry.
+    // But to make it seamless, we can force a rebuild if we want, but let's stick to the plan:
+    // 1. Request here.
+    // 2. PrayerHeader handles "no permission" state with a button.
+    // If the user grants it here, the PrayerHeader might still show error until refreshed.
+    // We can fix that by making PrayerHeader watch a location provider, but let's keep it simple first.
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Al-Tadhkirah'),
@@ -39,6 +71,8 @@ class DashboardScreen extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
+            // Pass a key or value to force rebuild if needed, or just let it be.
+            // Since we call setState after permission check, it might rebuild.
             const PrayerHeader(),
             Expanded(child: const ZikrList()),
           ],
@@ -50,13 +84,8 @@ class DashboardScreen extends ConsumerWidget {
             context,
             MaterialPageRoute(builder: (context) => const AddEditZikrScreen()),
           ).then((_) {
-            // Refresh list if needed, but Riverpod/FutureBuilder might need manual trigger or Stream
-            // For now, we rely on setState or Provider invalidation if we switch to StreamProvider
-            // Actually, FutureBuilder won't auto-refresh. We should convert ZikrList to use a Stream or invalidate provider.
-            // Let's just use ref.refresh(zikrListProvider) pattern later.
-            // For MVP, we can just rebuild the widget tree or use a StateProvider for a trigger.
-            (context as Element)
-                .markNeedsBuild(); // Quick hack for FutureBuilder refresh
+            // Refresh list if needed
+            (context as Element).markNeedsBuild();
           });
         },
         child: const Icon(Icons.add),

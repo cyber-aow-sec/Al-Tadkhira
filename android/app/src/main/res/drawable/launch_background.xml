@@ -3,8 +3,12 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_background" />
 
-    <!-- Splash screen image -->
-    <item>
+    <!-- Splash screen image with padding to prevent it from being too large -->
+    <item
+        android:top="140dp"
+        android:bottom="140dp"
+        android:left="140dp"
+        android:right="140dp">
         <bitmap
             android:gravity="center"
             android:src="@drawable/splash_screen" />

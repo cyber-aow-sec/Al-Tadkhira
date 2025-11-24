@@ -17,6 +17,7 @@ class CounterScreen extends ConsumerStatefulWidget {
 
 class _CounterScreenState extends ConsumerState<CounterScreen> {
   late int _currentCount;
+  int _currentPartIndex = 0;
   Timer? _autoIncrementTimer;
   bool _isAutoIncrementing = false;
 
@@ -34,7 +35,17 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
       DateTime.now(),
     );
     setState(() {
-      _currentCount = count;
+      // If simple zikr, load total count.
+      // If multi-part, we might want to save state of current part?
+      // For MVP, we start from part 0 every time or just don't persist part index.
+      // But we should persist the main count.
+      // If we are in multi-part mode, _currentCount represents the count for the CURRENT PART.
+      // So we start at 0.
+      if (widget.zikr.parts.isEmpty) {
+        _currentCount = count;
+      } else {
+        _currentCount = 0;
+      }
     });
   }
 
@@ -49,7 +60,42 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
       _currentCount++;
     });
     HapticFeedback.lightImpact();
-    _logHistory(1);
+
+    if (widget.zikr.parts.isNotEmpty) {
+      final currentPart = widget.zikr.parts[_currentPartIndex];
+      if (_currentCount >= currentPart.target) {
+        // Part completed
+        HapticFeedback.mediumImpact();
+
+        if (_currentPartIndex < widget.zikr.parts.length - 1) {
+          // Move to next part
+          Timer(const Duration(milliseconds: 200), () {
+            setState(() {
+              _currentCount = 0;
+              _currentPartIndex++;
+            });
+          });
+        } else {
+          // All parts completed (Wazifa done once)
+          HapticFeedback.heavyImpact();
+          _logHistory(1); // Log 1 full completion
+
+          // Reset to start
+          Timer(const Duration(milliseconds: 500), () {
+            setState(() {
+              _currentCount = 0;
+              _currentPartIndex = 0;
+            });
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Wazifa Completed!')));
+          });
+        }
+      }
+    } else {
+      // Simple Zikr
+      _logHistory(1);
+    }
   }
 
   void _decrement() {
@@ -58,7 +104,9 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
         _currentCount--;
       });
       HapticFeedback.lightImpact();
-      _logHistory(-1);
+      if (widget.zikr.parts.isEmpty) {
+        _logHistory(-1);
+      }
     }
   }
 
@@ -91,9 +139,11 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = widget.zikr.dailyTarget > 0
-        ? _currentCount / widget.zikr.dailyTarget
-        : 0.0;
+    final hasParts = widget.zikr.parts.isNotEmpty;
+    final currentPart = hasParts ? widget.zikr.parts[_currentPartIndex] : null;
+    final target = hasParts ? currentPart!.target : widget.zikr.dailyTarget;
+
+    final progress = target > 0 ? _currentCount / target : 0.0;
 
     return Scaffold(
       backgroundColor: Color(widget.zikr.color).withValues(alpha: 0.1),
@@ -105,7 +155,18 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
       body: Column(
         children: [
           const SizedBox(height: 40),
-          if (widget.zikr.dailyTarget > 0)
+          if (hasParts)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: Text(
+                currentPart!.description,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Color(widget.zikr.color),
+                ),
+              ),
+            ),
+          if (target > 0)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
@@ -119,7 +180,7 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Target: ${widget.zikr.dailyTarget}',
+                    'Target: $target',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ],
@@ -184,19 +245,29 @@ class _CounterScreenState extends ConsumerState<CounterScreen> {
                 FloatingActionButton(
                   heroTag: 'reset',
                   onPressed: () {
-                    // Optional: Reset for today? Or just ignore.
-                    // For now, let's just have a reset button that asks confirmation
                     showDialog(
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Reset Counter?'),
                         content: const Text(
-                          'This will not delete history, just reset the view to 0? No, that is confusing. Maybe manual edit?',
+                          'This will reset the current count.',
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _currentCount = 0;
+                                if (hasParts) {
+                                  _currentPartIndex = 0;
+                                }
+                              });
+                              Navigator.pop(context);
+                            },
+                            child: const Text('Reset'),
                           ),
                         ],
                       ),

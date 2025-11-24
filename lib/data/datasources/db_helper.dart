@@ -17,7 +17,17 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDB,
+      onUpgrade: _upgradeDB,
+      onConfigure: _onConfigure,
+    );
+  }
+
+  Future _onConfigure(Database db) async {
+    await db.execute('PRAGMA foreign_keys = ON');
   }
 
   Future _createDB(Database db, int version) async {
@@ -47,6 +57,31 @@ CREATE TABLE zikr_history (
   count $integerType,
   timestamp $textType,
   source $textType,
+  FOREIGN KEY (zikr_id) REFERENCES zikr (id) ON DELETE CASCADE
+)
+''');
+
+    await _createZikrPartsTable(db);
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createZikrPartsTable(db);
+    }
+  }
+
+  Future _createZikrPartsTable(Database db) async {
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    const textType = 'TEXT NOT NULL';
+    const integerType = 'INTEGER NOT NULL';
+
+    await db.execute('''
+CREATE TABLE zikr_parts (
+  id $idType,
+  zikr_id $integerType,
+  description $textType,
+  target $integerType,
+  sort_order $integerType,
   FOREIGN KEY (zikr_id) REFERENCES zikr (id) ON DELETE CASCADE
 )
 ''');
